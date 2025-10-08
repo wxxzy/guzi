@@ -6,6 +6,7 @@ import InstitutionalAnalysisPage from '../pages/InstitutionalAnalysisPage';
 import SmallCapAnalysisPage from '../pages/SmallCapAnalysisPage';
 import UndervaluedAnalysisPage from '../pages/UndervaluedAnalysisPage';
 import RankingPage from '../pages/RankingPage';
+import StockListPage from '../pages/StockListPage';
 
 // 导航组件
 const Navigation = () => {
@@ -39,6 +40,9 @@ const Navigation = () => {
         <li>
           <Link to="/rankings" className={isActive('/rankings')}>综合排名</Link>
         </li>
+        <li>
+          <Link to="/stocks" className={isActive("/stocks")}>股票列表</Link>
+        </li>
       </ul>
     </nav>
   );
@@ -58,6 +62,7 @@ const AppRouter = () => {
             <Route path="/smallcap" element={<SmallCapAnalysisPage />} />
             <Route path="/undervalued" element={<UndervaluedAnalysisPage />} />
             <Route path="/rankings" element={<RankingPage />} />
+            <Route path="/stocks" element={<StockListPage />} />
           </Routes>
         </main>
       </div>

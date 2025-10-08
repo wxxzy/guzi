@@ -400,6 +400,88 @@
   margin-top: 0;
 }
 
+/* 股票列表页面样式 */
+.stock-list-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: #333;
+}
+
+.page-controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.stock-list-container {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.stock-table th,
+.stock-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.stock-table th {
+  background-color: #f0f7ff;
+  font-weight: bold;
+  position: sticky;
+  top: 0;
+}
+
+.stock-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.table-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.error-message {
+  background: #fff2f0;
+  color: #ff4d4f;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  border-left: 4px solid #ff4d4f;
+  text-align: center;
+}
+
+.error-message button {
+  margin-top: 0.5rem;
+  background: #ff4d4f;
+}
+
 @media (max-width: 768px) {
   .dashboard-content {
     grid-template-columns: 1fr;
