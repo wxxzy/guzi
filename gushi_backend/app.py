@@ -99,17 +99,22 @@ def create_app(config_name=None):
     @app.errorhandler(500)
     def internal_error(error):
         """处理500错误"""
+        import traceback
         db.session.rollback()
-        return jsonify({'error': '服务器内部错误'}), 500
+        print("INTERNAL ERROR TRACEBACK:")
+        traceback.print_exc()
+        return jsonify({'error': '服务器内部错误', 'details': str(error)}), 500
     
     # 注册蓝图
     from routes.main import main_bp
     from routes.stock import stock_bp
     from routes.analysis import analysis_bp
+    from routes.tasks import task_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(stock_bp)
     app.register_blueprint(analysis_bp)
+    app.register_blueprint(task_bp)  # 注册任务蓝图
     app.register_blueprint(monitoring_bp)  # 注册监控蓝图
     
     return app

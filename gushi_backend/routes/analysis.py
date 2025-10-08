@@ -10,15 +10,18 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["1000 per hour"])
 @analysis_bp.route('/api/analysis/dragon', methods=['POST'])
 @limiter.limit("30 per minute")
 def analyze_dragon_stocks():
-    """分析板块龙一龙二"""
+    """分析板块龙一龙二 (同步版本)"""
     try:
         data = request.get_json()
         sector = data.get('sector', '')  # 行业板块
         
+        print(f"DEBUG: analyze_dragon_stocks endpoint called with sector: {sector}")
         result = perform_analysis('dragon', {'sector': sector})
+        print(f"DEBUG: analyze_dragon_stocks completed")
         
         return jsonify(result)
     except Exception as e:
+        print(f"DEBUG: analyze_dragon_stocks error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @analysis_bp.route('/api/analysis/institutional', methods=['POST'])

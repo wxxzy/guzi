@@ -13,7 +13,9 @@ def perform_analysis(analysis_type, params):
     :param params: 分析参数
     :return: 分析结果
     """
+    print(f"DEBUG: perform_analysis called with analysis_type: {analysis_type}")
     if analysis_type == 'dragon':
+        print(f"DEBUG: calling analyze_sector_dragons with sector: {params.get('sector', '')}")
         return analyze_sector_dragons(params.get('sector', ''))
     elif analysis_type == 'institutional':
         return analyze_institutional_stocks(params.get('filters', {}))
@@ -135,8 +137,135 @@ def get_stock_rankings(limit=20):
         }
         return error_result
 
-def analyze_sector_dragons(sector):
-    """分析板块龙一龙二"""
+def analyze_sector_dragons_realtime(sector, task_id, task_manager, limit=None):
+    """实时分析板块龙一龙二，支持进度报告"""
+    from data_source.data_fetcher import fetch_stock_data
+    from datetime import timedelta
+    
+    # 添加调试信息
+    print(f"DEBUG: analyze_sector_dragons_realtime called - sector={sector}, task_id={task_id}, task_manager={type(task_manager)}, limit={limit}")
+    
+    # 断言确保task_manager不是None
+    assert task_manager is not None, "task_manager不能为None"
+    
+    # 如果没有指定行业，使用所有股票
+    if sector:
+        stocks = Stock.query.filter(Stock.industry.like(f'%{sector}%')).all()
+    else:
+        # 限制股票数量以提高性能，优先选择有市值信息的股票
+        query = Stock.query
+        if limit is None:
+            limit = 100  # 默认限制为100只股票
+        
+        # 优先选择有市值数据的股票，如果没有市值则随机选择
+        stocks_with_market_cap = query.filter(Stock.market_cap.isnot(None)).order_by(Stock.market_cap.desc()).limit(limit).all()
+        stocks_without_market_cap = []
+        
+        # 如果有市值的股票不够，补充没有市值的股票
+        if len(stocks_with_market_cap) < limit:
+            remaining_count = limit - len(stocks_with_market_cap)
+            stocks_without_market_cap = query.filter(Stock.market_cap.is_(None)).limit(remaining_count).all()
+        
+        stocks = stocks_with_market_cap + stocks_without_market_cap
+    
+    if not stocks:
+        return {
+            'sector': sector,
+            'timestamp': datetime.now().isoformat(),
+            'dragons': [],
+            'top_stocks': [],
+            'message': '未找到相关股票数据'
+        }
+    
+    # 更新总任务数
+    total_stocks = len(stocks)
+    print(f"DEBUG: Updating task progress with task_manager={type(task_manager)}, task_id={task_id}")
+    task_manager.update_task_progress(task_id, 0, f"开始分析 {total_stocks} 只股票", None)
+    
+    # 计算每只股票的综合评分（考虑市值、涨幅、成交量等因素）
+    ranked_stocks = []
+    for i, stock in enumerate(stocks):
+        # 更新进度
+        progress = int((i / total_stocks) * 80)  # 分析阶段占80%的进度
+        task_manager.update_task_progress(
+            task_id, 
+            progress, 
+            f"正在分析股票 {i+1}/{total_stocks}", 
+            f"{stock.name}({stock.symbol})"
+        )
+        
+        # 获取近期数据以计算涨幅和成交量
+        # 获取最近10个交易日的数据
+        end_date = datetime.now().strftime('%Y%m%d')
+        start_date = (datetime.now() - timedelta(days=15)).strftime('%Y%m%d')  # 多几天以防周末
+        stock_data = fetch_stock_data(stock.symbol, start_date, end_date)
+        
+        if not stock_data.empty and len(stock_data) >= 2:
+            # 计算10日涨幅
+            recent_price = stock_data.iloc[-1]['close_price']
+            prev_price = stock_data.iloc[0]['close_price']
+            if prev_price and prev_price != 0:
+                price_change_pct = (recent_price - prev_price) / prev_price * 100
+            else:
+                price_change_pct = 0
+            
+            # 计算平均成交量
+            avg_volume = stock_data['volume'].mean() if 'volume' in stock_data.columns else 0
+        else:
+            price_change_pct = 0
+            avg_volume = 0
+        
+        # 计算综合评分 (市值权重30%, 涨幅权重40%, 成交量权重30%)
+        market_cap_score = min((stock.market_cap or 0) / 1000000000, 10) if stock.market_cap else 0  # 市值评分，最高10分
+        price_score = max(min(price_change_pct, 20), -20) / 2  # 涨幅评分，限制在-10到10之间
+        volume_score = min(avg_volume / 10000000, 10) if avg_volume else 0  # 成交量评分，最高10分
+        
+        # 归一化到0-100分制
+        total_score = (market_cap_score * 0.3 + price_score * 0.4 + volume_score * 0.3) * 10
+        
+        ranked_stocks.append({
+            'stock': stock.to_dict(),
+            'score': total_score,
+            'price_change_pct': price_change_pct,
+            'avg_volume': avg_volume
+        })
+    
+    # 更新进度到排序阶段
+    task_manager.update_task_progress(task_id, 85, "正在排序股票", "排序中...")
+    
+    # 按综合评分排序
+    ranked_stocks.sort(key=lambda x: x['score'], reverse=True)
+    
+    # 更新进度到生成结果阶段
+    task_manager.update_task_progress(task_id, 95, "正在生成分析结果", "收尾工作...")
+    
+    # 获取龙一龙二（前2名）
+    dragons = [item['stock'] for item in ranked_stocks[:2]]
+    
+    result = {
+        'sector': sector,
+        'timestamp': datetime.now().isoformat(),
+        'dragons': dragons,
+        'top_stocks': [item['stock'] for item in ranked_stocks[:10]],  # 前10名
+        'all_ranked': [
+            {
+                'stock': item['stock'],
+                'score': round(item['score'], 2),
+                'price_change_pct': round(item['price_change_pct'], 2),
+                'avg_volume': int(item['avg_volume']) if item['avg_volume'] else 0
+            }
+            for item in ranked_stocks[:20]  # 前20名详细信息
+        ],
+        'total_analyzed': total_stocks  # 添加分析总数
+    }
+    
+    # 保存分析结果到数据库
+    save_analysis_result(None, 'dragon', json.dumps(result, ensure_ascii=False), 'internal_algorithm')
+    
+    return result
+
+def analyze_sector_dragons(sector, limit=None):
+    """分析板块龙一龙二（同步版本）"""
     from data_source.data_fetcher import fetch_stock_data
     from datetime import timedelta
     
@@ -144,7 +273,21 @@ def analyze_sector_dragons(sector):
     if sector:
         stocks = Stock.query.filter(Stock.industry.like(f'%{sector}%')).all()
     else:
-        stocks = Stock.query.all()
+        # 限制股票数量以提高性能，优先选择有市值信息的股票
+        query = Stock.query
+        if limit is None:
+            limit = 100  # 默认限制为100只股票
+        
+        # 优先选择有市值数据的股票，如果没有市值则随机选择
+        stocks_with_market_cap = query.filter(Stock.market_cap.isnot(None)).order_by(Stock.market_cap.desc()).limit(limit).all()
+        stocks_without_market_cap = []
+        
+        # 如果有市值的股票不够，补充没有市值的股票
+        if len(stocks_with_market_cap) < limit:
+            remaining_count = limit - len(stocks_with_market_cap)
+            stocks_without_market_cap = query.filter(Stock.market_cap.is_(None)).limit(remaining_count).all()
+        
+        stocks = stocks_with_market_cap + stocks_without_market_cap
     
     if not stocks:
         return {
@@ -180,7 +323,7 @@ def analyze_sector_dragons(sector):
             avg_volume = 0
         
         # 计算综合评分 (市值权重30%, 涨幅权重40%, 成交量权重30%)
-        market_cap_score = min(stock.market_cap or 0 / 1000000000, 10)  # 市值评分，最高10分
+        market_cap_score = min((stock.market_cap or 0) / 1000000000, 10) if stock.market_cap else 0  # 市值评分，最高10分
         price_score = max(min(price_change_pct, 20), -20) / 2  # 涨幅评分，限制在-10到10之间
         volume_score = min(avg_volume / 10000000, 10) if avg_volume else 0  # 成交量评分，最高10分
         

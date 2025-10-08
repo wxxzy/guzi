@@ -222,6 +222,31 @@ class ApiService {
       throw error;
     }
   }
+
+  // 启动后台任务
+  static async startTask(taskType, params = {}) {
+    try {
+      const response = await apiClient.post('/api/task/start', {
+        type: taskType,
+        params: params
+      });
+      return response;
+    } catch (error) {
+      console.error('启动任务失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取任务状态
+  static async getTaskStatus(taskId) {
+    try {
+      const response = await apiClient.get(`/api/task/status/${taskId}`);
+      return response;
+    } catch (error) {
+      console.error('获取任务状态失败:', error);
+      throw error;
+    }
+  }
 }
 
 export default ApiService;
