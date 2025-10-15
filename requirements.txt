@@ -4,3 +4,4 @@ redis
 Flask-SQLAlchemy
 psycopg2-binary
 duckdb-engine
+google-generativeai
