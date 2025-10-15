@@ -6,6 +6,9 @@ import redis
 import json
 import time
 
+from ..database import db
+from ..models import Stock
+
 # --- 缓存配置 ---
 CACHE_EXPIRATION_SECONDS = 3600  # 缓存1小时
 
@@ -75,3 +78,30 @@ def get_all_stocks():
     except Exception as e:
         print(f"Error fetching stock list from AkShare: {e}")
         return pd.DataFrame()
+
+def update_stock_list_in_db():
+    """
+    从数据源获取最新股票列表并更新到数据库中。
+    """
+    print("Fetching latest stock list to update database...")
+    stocks_df = get_all_stocks()
+
+    if stocks_df.empty:
+        print("Failed to fetch stock list. Database update skipped.")
+        return
+
+    count = 0
+    for index, row in stocks_df.iterrows():
+        # 创建Stock对象
+        stock_obj = Stock(
+            code=row['code'],
+            name=row['name'],
+            # 假设market, industry等信息需要从其他接口获取，这里暂时留空或设为默认值
+            market='A-Share' # 示例默认值
+        )
+        # 使用merge进行upsert操作
+        db.session.merge(stock_obj)
+        count += 1
+
+    db.session.commit()
+    print(f"Database update complete. {count} stock records processed.")
