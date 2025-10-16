@@ -2,6 +2,7 @@
 
 from flask import Blueprint, jsonify, current_app, request
 from guzi_backend.services import data_service
+from guzi_backend.services import analysis_service
 
 # 创建一个名为'main'的蓝图
 main = Blueprint('main', __name__)
@@ -61,3 +62,18 @@ def gemini_generate_debug():
         return jsonify({"code": 50002, "message": str(e), "data": None}), 500
     except Exception as e:
         return jsonify({"code": 50003, "message": f"AI service error: {e}", "data": None}), 500
+
+@main.route('/api/v1/analysis/sector-leaders')
+def get_sector_leaders():
+    """获取指定行业的龙一龙二股票。"""
+    industry_name = request.args.get('industry')
+    if not industry_name:
+        return jsonify({"code": 40001, "message": "Industry name parameter is required.", "data": None}), 400
+
+    try:
+        leaders = analysis_service.identify_sector_leaders(industry_name)
+        if not leaders:
+            return jsonify({"code": 40401, "message": f"No leaders found for industry: {industry_name}", "data": []}), 404
+        return jsonify({"code": 0, "message": "Success", "data": {"industry": industry_name, "leaders": leaders}})
+    except Exception as e:
+        return jsonify({"code": 50004, "message": f"Analysis service error: {e}", "data": None}), 500
