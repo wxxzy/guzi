@@ -77,3 +77,14 @@ def get_sector_leaders():
         return jsonify({"code": 0, "message": "Success", "data": {"industry": industry_name, "leaders": leaders}})
     except Exception as e:
         return jsonify({"code": 50004, "message": f"Analysis service error: {e}", "data": None}), 500
+
+@main.route('/api/v1/analysis/institutional-holdings')
+def get_institutional_holdings():
+    """获取机构偏好股票列表。"""
+    try:
+        institutional_stocks = analysis_service.analyze_institutional_holdings()
+        if not institutional_stocks:
+            return jsonify({"code": 40402, "message": "No institutional preferred stocks found.", "data": []}), 404
+        return jsonify({"code": 0, "message": "Success", "data": {"stocks": institutional_stocks}})
+    except Exception as e:
+        return jsonify({"code": 50005, "message": f"Analysis service error: {e}", "data": None}), 500

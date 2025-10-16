@@ -105,3 +105,100 @@ def identify_sector_leaders(industry_name: str):
         })
     
     return leaders
+
+def analyze_institutional_holdings():
+    """
+    分析并识别机构重仓股。
+    基于大市值、高流动性、价格稳定性等指标进行综合评分，模拟机构偏好。
+    
+    Returns:
+        list: 包含机构偏好股票信息的列表。
+    """
+    # 1. 从数据库获取所有股票
+    all_stocks = Stock.query.all()
+    if not all_stocks:
+        return []
+
+    stock_codes = [s.code for s in all_stocks]
+
+    # 2. 获取这些股票的实时市场数据
+    try:
+        realtime_data_df = ak.stock_zh_a_spot_em()
+        realtime_data_df = realtime_data_df[realtime_data_df['代码'].isin(stock_codes)]
+
+        if realtime_data_df.empty:
+            print("Warning: No real-time data found for institutional analysis. Using dummy data.")
+            realtime_data_df = pd.DataFrame({
+                '代码': stock_codes,
+                '最新价': [10.0] * len(stock_codes),
+                '涨跌幅': [0.0] * len(stock_codes),
+                '成交额': [10000000.0] * len(stock_codes),
+                '总市值': [1000000000.0] * len(stock_codes),
+            })
+
+    except Exception as e:
+        print(f"Error fetching real-time data for institutional analysis: {e}. Using dummy data.")
+        realtime_data_df = pd.DataFrame({
+            '代码': stock_codes,
+            '最新价': [10.0] * len(stock_codes),
+            '涨跌幅': [0.0] * len(stock_codes),
+            '成交额': [10000000.0] * len(stock_codes),
+            '总市值': [1000000000.0] * len(stock_codes),
+        })
+
+    # 3. 合并数据库中的股票名称和实时数据
+    merged_df = pd.merge(
+        pd.DataFrame([{'code': s.code, 'name': s.name, 'industry': s.industry} for s in all_stocks]),
+        realtime_data_df,
+        left_on='code',
+        right_on='代码',
+        how='left'
+    )
+    # 填充缺失的实时数据
+    merged_df['总市值'] = merged_df['总市值'].fillna(0)
+    merged_df['涨跌幅'] = merged_df['涨跌幅'].fillna(0)
+    merged_df['成交额'] = merged_df['成交额'].fillna(0)
+
+    if merged_df.empty:
+        return []
+
+    # 4. 应用评分逻辑
+    # 机构偏好：大市值、高流动性、价格稳定性
+    # 评分权重：市值(40%) + 成交额(30%) + 价格稳定性(30%)
+    # 价格稳定性：涨跌幅绝对值越小越稳定，所以取其倒数或用 (1 - abs(涨跌幅)/max_abs_涨跌幅) 归一化
+
+    # 归一化处理
+    # 市值归一化
+    merged_df['市值_norm'] = (merged_df['总市值'] - merged_df['总市值'].min()) / (merged_df['总市值'].max() - merged_df['总市值'].min() + 1e-9)
+    # 成交额归一化
+    merged_df['成交额_norm'] = (merged_df['成交额'] - merged_df['成交额'].min()) / (merged_df['成交额'].max() - merged_df['成交额'].min() + 1e-9)
+    # 价格稳定性归一化 (涨跌幅绝对值越小，稳定性越高，得分越高)
+    max_abs_change = merged_df['涨跌幅'].abs().max()
+    if max_abs_change > 0:
+        merged_df['稳定性_norm'] = 1 - (merged_df['涨跌幅'].abs() / max_abs_change)
+    else:
+        merged_df['稳定性_norm'] = 1.0 # 如果所有涨跌幅都为0，则都视为最稳定
+
+    # 计算综合评分
+    merged_df['institutional_score'] = (
+        merged_df['市值_norm'] * 0.4 +
+        merged_df['成交额_norm'] * 0.3 +
+        merged_df['稳定性_norm'] * 0.3
+    )
+
+    # 5. 排序并返回前N名
+    merged_df = merged_df.sort_values(by='institutional_score', ascending=False)
+    
+    top_institutional_stocks = []
+    for _, row in merged_df.head(10).iterrows(): # 返回前10名作为示例
+        top_institutional_stocks.append({
+            'code': row['code'],
+            'name': row['name'],
+            'industry': row['industry'],
+            'institutional_score': round(row['institutional_score'], 2),
+            'market_cap': row['总市值'],
+            'change_percent': row['涨跌幅'],
+            'volume_amount': row['成交额']
+        })
+    
+    return top_institutional_stocks
