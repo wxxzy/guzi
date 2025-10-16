@@ -3,6 +3,7 @@
 from flask import Flask
 from .config import config
 from .database import db
+from .services.ai_manager import ai_manager
 
 def create_app(config_name='default'):
     """创建并配置Flask应用实例（应用工厂模式）。"""
@@ -13,6 +14,10 @@ def create_app(config_name='default'):
 
     # 初始化SQLAlchemy
     db.init_app(app)
+
+    # 初始化AI管理器
+    ai_manager.init_app(app)
+    app.ai_manager = ai_manager # 将ai_manager挂载到app对象上，方便访问
 
     # 注册蓝图
     from .routes.main import main as main_blueprint

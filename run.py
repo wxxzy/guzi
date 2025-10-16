@@ -1,5 +1,8 @@
 # run.py
 
+from dotenv import load_dotenv
+load_dotenv() # 加载.env文件中的环境变量
+
 import os
 from guzi_backend import create_app, db
 from guzi_backend.models import Stock

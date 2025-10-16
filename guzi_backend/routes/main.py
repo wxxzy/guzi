@@ -1,6 +1,6 @@
 # guzi_backend/routes/main.py
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, current_app, request
 from guzi_backend.services import data_service
 
 # 创建一个名为'main'的蓝图
@@ -45,3 +45,19 @@ def get_all_stocks_debug():
             "stocks": stocks_json
         }
     })
+
+@main.route('/api/v1/debug/gemini-generate')
+def gemini_generate_debug():
+    """一个用于调试的端点，调用Gemini生成文本。"""
+    prompt = request.args.get('prompt', '你好')
+    if not prompt:
+        return jsonify({"code": 40001, "message": "Prompt parameter is required.", "data": None}), 400
+
+    try:
+        gemini_adapter = current_app.ai_manager.get_adapter('gemini')
+        response_text = gemini_adapter.generate_text(prompt)
+        return jsonify({"code": 0, "message": "Success", "data": {"response": response_text}})
+    except ValueError as e:
+        return jsonify({"code": 50002, "message": str(e), "data": None}), 500
+    except Exception as e:
+        return jsonify({"code": 50003, "message": f"AI service error: {e}", "data": None}), 500
