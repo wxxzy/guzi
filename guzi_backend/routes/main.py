@@ -88,3 +88,37 @@ def get_institutional_holdings():
         return jsonify({"code": 0, "message": "Success", "data": {"stocks": institutional_stocks}})
     except Exception as e:
         return jsonify({"code": 50005, "message": f"Analysis service error: {e}", "data": None}), 500
+
+@main.route('/api/v1/analysis/small-cap-leaders')
+def get_small_cap_leaders():
+    """获取中小票龙头股列表。"""
+    try:
+        # 可以通过查询参数传入市值阈值，这里使用默认值
+        leaders = analysis_service.identify_small_cap_leaders()
+        if not leaders:
+            return jsonify({"code": 40403, "message": "No small-cap leaders found.", "data": []}), 404
+        return jsonify({"code": 0, "message": "Success", "data": {"stocks": leaders}})
+    except Exception as e:
+        return jsonify({"code": 50006, "message": f"Analysis service error: {e}", "data": None}), 500
+
+@main.route('/api/v1/analysis/undervalued-stocks')
+def get_undervalued_stocks():
+    """获取低估股票列表。"""
+    try:
+        undervalued_stocks = analysis_service.identify_undervalued_stocks()
+        if not undervalued_stocks:
+            return jsonify({"code": 40404, "message": "No undervalued stocks found.", "data": []}), 404
+        return jsonify({"code": 0, "message": "Success", "data": {"stocks": undervalued_stocks}})
+    except Exception as e:
+        return jsonify({"code": 50007, "message": f"Analysis service error: {e}", "data": None}), 500
+
+@main.route('/api/v1/analysis/comprehensive-score')
+def get_comprehensive_scores():
+    """获取所有股票的综合评分。"""
+    try:
+        scored_stocks = analysis_service.get_comprehensive_score()
+        if not scored_stocks:
+            return jsonify({"code": 40405, "message": "No stocks found for comprehensive scoring.", "data": []}), 404
+        return jsonify({"code": 0, "message": "Success", "data": {"stocks": scored_stocks}})
+    except Exception as e:
+        return jsonify({"code": 50008, "message": f"Analysis service error: {e}", "data": None}), 500

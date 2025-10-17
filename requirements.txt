@@ -3,6 +3,8 @@ akshare
 redis
 Flask-SQLAlchemy
 psycopg2-binary
-duckdb-engine
 google-generativeai
 python-dotenv
+Flask-CORS
+Flask-JWT-Extended
+Flask-Migrate
